@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Sawit AI FIX 🔥</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+<style>
+body{margin:0;font-family:'Segoe UI';background:#020617;color:white;}
+.app{display:flex;}
+.sidebar{width:220px;background:#111827;height:100vh;padding:15px;}
+.content{flex:1;padding:20px;}
+.card{background:#1f2937;padding:15px;margin-bottom:15px;border-radius:10px;}
+button,input{width:100%;padding:10px;margin:5px;border:none;border-radius:8px;}
+button{background:#22c55e;color:white;font-weight:bold;}
+.hidden{display:none;}
+</style>
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div id="loginBox">
+<h2>🌴 Sawit AI</h2>
+<input id="pin" placeholder="PIN">
+<input id="kebun" placeholder="Nama Kebun">
+<button onclick="login()">Login</button>
+</div>
+
+<!-- APP -->
+<div id="app" class="app hidden">
+
+<div class="sidebar">
+<h3>Menu</h3>
+<button id="menuInput" onclick="showPage('input')">Input</button>
+<button id="menuDashboard" onclick="showPage('dashboard')">Dashboard</button>
+<button id="menuData" onclick="showPage('data')">Data</button>
+</div>
+
+<div class="content">
+
+<div id="input" class="card">
+<h3>Input</h3>
+<input id="nama" placeholder="Nama">
+<input id="mandor" placeholder="Mandor">
+<input id="tbs" type="number" placeholder="TBS" oninput="aiCheck(this.value)">
+<p id="aiText"></p>
+<button onclick="kirim()">Kirim</button>
+</div>
+
+<div id="dashboard" class="card">
+<h3>Dashboard</h3>
+<p>Total: <span id="total"></span></p>
+<p>Rata-rata: <span id="avg"></span></p>
+<p id="aiInsight"></p>
+<canvas id="chart"></canvas>
+</div>
+
+<div id="data" class="card">
+<h3>Data</h3>
+<div id="list"></div>
+<button onclick="hapusSemua()">Hapus Semua</button>
+</div>
+
+</div>
+</div>
+
+<script>
+
+// FIREBASE
+const firebaseConfig = {
+  apiKey: "AIzaSyAl5r4dFytJoDAoAvmc_Op_uXt0pQUGKJA",
+  authDomain: "sawit-ai.firebaseapp.com",
+  databaseURL: "https://sawit-ai-default-rtdb.firebaseio.com/",
+  projectId: "sawit-ai",
+  storageBucket: "sawit-ai.firebasestorage.app",
+  messagingSenderId: "228138428443",
+  appId: "1:228138428443:web:62438359c729379d7930be"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+let role="",kebun="",chart,history=[];
+
+// LOGIN
+function login(){
+let pin=val("pin");
+kebun=val("kebun");
+
+if(pin=="1111") role="kerani";
+else if(pin=="2222") role="management";
+else if(pin=="3333") role="admin";
+else if(pin=="9999") role="owner";
+else return alert("PIN salah");
+
+document.getElementById("loginBox").style.display="none";
+document.getElementById("app").classList.remove("hidden");
+
+setupRole();
+loadData();
+}
+
+// SET ROLE UI (FIX TOTAL)
+function setupRole(){
+
+// reset menu
+menuInput.style.display="none";
+menuDashboard.style.display="none";
+menuData.style.display="none";
+
+// reset halaman
+hideAll();
+
+// ROLE
+if(role=="kerani"){
+menuInput.style.display="block";
+showPage("input");
+}
+
+if(role=="admin"){
+menuData.style.display="block";
+showPage("data");
+}
+
+if(role=="management"){
+menuDashboard.style.display="block";
+showPage("dashboard");
+}
+
+if(role=="owner"){
+menuDashboard.style.display="block";
+showPage("dashboard");
+}
+}
+
+// NAV
+function hideAll(){
+["input","dashboard","data"].forEach(x=>{
+document.getElementById(x).style.display="none";
+});
+}
+
+// ANTI TEMBUS
+function showPage(id){
+
+if(role=="kerani" && id!="input") return alert("Tidak ada akses!");
+if(role=="admin" && id!="data") return alert("Tidak ada akses!");
+if((role=="management"||role=="owner") && id!="dashboard") return alert("Tidak ada akses!");
+
+hideAll();
+document.getElementById(id).style.display="block";
+}
+
+// AI
+function aiCheck(v){
+v=parseInt(v);
+if(!v) return;
+
+let avg=history.length?history.reduce((a,b)=>a+b)/history.length:0;
+
+if(avg==0){
+aiText.innerText="Mengumpulkan data...";
+return;
+}
+
+if(v>avg*2) aiText.innerText="🚨 Anomali besar!";
+else if(v<avg*0.5) aiText.innerText="⚠️ Terlalu rendah!";
+else aiText.innerText="✅ Normal";
+}
+
+// KIRIM
+function kirim(){
+
+if(role!="kerani") return alert("Tidak ada akses!");
+
+let d={
+nama:val("nama"),
+mandor:val("mandor"),
+tbs:parseInt(val("tbs")),
+status:"pending"
+};
+
+if(!d.nama||!d.tbs) return alert("Isi data!");
+
+db.ref("panen/"+kebun).push(d);
+}
+
+// LOAD DATA
+function loadData(){
+db.ref("panen/"+kebun).on("value",snap=>{
+
+let total=0,count=0;
+let html="",labels=[],data=[];
+history=[];
+
+snap.forEach(d=>{
+let v=d.val();
+
+if(!v.nama||!v.tbs) return;
+
+total+=v.tbs;
+count++;
+
+labels.push(v.nama);
+data.push(v.tbs);
+history.push(v.tbs);
+
+html+=`
+<p>
+${v.nama} | ${v.mandor} | ${v.tbs} | ${v.status}
+${role=="admin"?`
+<button onclick="acc('${d.key}')">ACC</button>
+<button onclick="hapus('${d.key}')">Hapus</button>
+`:""}
+</p>`;
+});
+
+list.innerHTML=html;
+
+let avg=count?Math.round(total/count):0;
+totalEl.innerText=total;
+avgEl.innerText=avg;
+
+aiInsight.innerText=avg>300?"🔥 Tinggi":avg<100?"⚠️ Rendah":"✅ Normal";
+
+// chart
+if(chart) chart.destroy();
+chart=new Chart(chartCanvas,{
+type:"line",
+data:{labels:labels,datasets:[{label:"TBS",data:data}]}
+});
+
+});
+}
+
+// ACTION
+function acc(id){
+if(role!="admin") return;
+db.ref("panen/"+kebun+"/"+id).update({status:"approved"});
+}
+
+function hapus(id){
+if(role!="admin") return;
+db.ref("panen/"+kebun+"/"+id).remove();
+}
+
+function hapusSemua(){
+if(role!="admin") return alert("Tidak ada akses!");
+if(confirm("Hapus semua?")){
+db.ref("panen/"+kebun).remove();
+}
+}
+
+// HELPER
+function val(id){return document.getElementById(id).value;}
+const totalEl=document.getElementById("total");
+const avgEl=document.getElementById("avg");
+const chartCanvas=document.getElementById("chart");
+
+</script>
+
+</body>
+</html>
